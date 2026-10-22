@@ -1,8 +1,11 @@
 # cfo
 
+[![Build PDF](https://github.com/drivelogic1-svg/cfo/actions/workflows/build-pdf.yml/badge.svg?branch=main)](https://github.com/drivelogic1-svg/cfo/actions/workflows/build-pdf.yml)
+
 ## Правовая справка: запреты на ввоз товаров в Республике Казахстан (2026)
 
 Готовый документ: **`Запреты_на_ввоз_товаров_РК_2026.pdf`** (14 страниц, A4, на русском языке).
+Собирается автоматически в GitHub Actions — см. раздел ниже.
 
 Справка проверяет сведения о постановлении 2026 года, запрещающем ввоз товаров в Казахстан,
 и фиксирует фактически действующие ограничения по состоянию на 22.10.2026:
@@ -31,8 +34,10 @@ PDF собирается автоматически workflow **`.github/workflow
 | ручной запуск (`workflow_dispatch`) | сборка; опционально — приложить PDF к последнему релизу |
 | публикация релиза или тег `v*` | сборка + PDF прикрепляется к релизу |
 
-**Где забрать результат:** вкладка *Actions* → запуск **Build PDF** → блок
-*Artifacts* → **zaprety-na-vvoz-2026-pdf**. Артефакт хранится 90 дней.
+**Где забрать результат:** вкладка [Actions](https://github.com/drivelogic1-svg/cfo/actions/workflows/build-pdf.yml)
+→ запуск **Build PDF** → блок *Artifacts* → **zaprety-na-vvoz-2026-pdf**.
+Артефакт хранится 90 дней. Последняя успешная сборка:
+[run 39748431502](https://github.com/drivelogic1-svg/cfo/actions/runs/39748431502) (25 с).
 
 Workflow ставит `fonts-dejavu-core`, собирает PDF скриптом и проверяет результат:
 число страниц, наличие текста (защита от «пустых» страниц при отсутствии шрифтов)
