@@ -1,0 +1,3 @@
+# Зависимости для сборки PDF-справки (reports/build_import_bans_report.py)
+reportlab>=4.2,<6
+pymupdf>=1.24,<3

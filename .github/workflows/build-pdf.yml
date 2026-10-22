@@ -1,0 +1,121 @@
+name: Build PDF
+
+# Сборка PDF-справки «Запреты на ввоз товаров в Республике Казахстан (2026)».
+# Результат: артефакт workflow + файл в GitHub Release (при теге v*).
+
+on:
+  push:
+    branches:
+      - main
+      - "arena/**"
+    paths:
+      - "reports/**"
+      - "requirements.txt"
+      - ".github/workflows/build-pdf.yml"
+  pull_request:
+    paths:
+      - "reports/**"
+      - "requirements.txt"
+      - ".github/workflows/build-pdf.yml"
+  workflow_dispatch:
+    inputs:
+      attach_to_release:
+        description: "Приложить PDF к последнему релизу"
+        type: boolean
+        default: false
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-pdf-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PDF_NAME: "Запреты_на_ввоз_товаров_РК_2026.pdf"
+
+jobs:
+  build:
+    name: Сборка PDF
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Установка шрифтов с кириллицей
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq fonts-dejavu-core
+          fc-list | grep -i dejavu | head -5 || true
+
+      - name: Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Установка зависимостей
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Сборка PDF
+        run: python reports/build_import_bans_report.py
+
+      - name: Проверка результата
+        run: |
+          python - <<'PY'
+          import os, pymupdf
+          path = "Запреты_на_ввоз_товаров_РК_2026.pdf"
+          assert os.path.isfile(path), "PDF не создан"
+          doc = pymupdf.open(path)
+          pages = doc.page_count
+          text = "".join(p.get_text() for p in doc)
+          bookmarks = len(doc.get_toc())
+          doc.close()
+          print(f"Файл: {path}")
+          print(f"Размер: {os.path.getsize(path)} байт")
+          print(f"Страниц: {pages}; закладок: {bookmarks}; символов текста: {len(text)}")
+          assert pages >= 10, "Слишком мало страниц"
+          assert len(text) > 20000, "Похоже, текст не отрисован (проблема со шрифтами)"
+          assert "Казахстан" in text, "В PDF отсутствует ожидаемый текст"
+          assert bookmarks > 0, "Не созданы закладки"
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as fh:
+              fh.write("## PDF собран\n\n")
+              fh.write(f"- Файл: `{path}`\n")
+              fh.write(f"- Страниц: **{pages}**\n")
+              fh.write(f"- Закладок: **{bookmarks}**\n")
+              fh.write(f"- Размер: **{os.path.getsize(path) // 1024} КБ**\n")
+          PY
+
+      - name: Сохранить PDF как артефакт
+        uses: actions/upload-artifact@v4
+        with:
+          name: zaprety-na-vvoz-2026-pdf
+          path: Запреты_на_ввоз_товаров_РК_2026.pdf
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Приложить PDF к релизу (тег v*)
+        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: Запреты_на_ввоз_товаров_РК_2026.pdf
+          fail_on_unmatched_files: true
+
+      - name: Приложить PDF к последнему релизу (ручной запуск)
+        if: github.event_name == 'workflow_dispatch' && inputs.attach_to_release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG=$(gh release list --limit 1 --json tagName --jq '.[0].tagName')
+          if [ -z "$TAG" ]; then
+            echo "Релизов нет — пропускаю шаг."
+            exit 0
+          fi
+          gh release upload "$TAG" "$PDF_NAME" --clobber
